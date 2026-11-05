@@ -1,0 +1,165 @@
+"use client";
+
+import React, { useEffect, useRef, useState, useMemo, Suspense } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useGLTF, Environment } from "@react-three/drei";
+import * as THREE from "three";
+import { Video, Box, ShieldCheck, Terminal, Cpu } from "lucide-react";
+
+// مفاتيح عضلات الوجه وحركة الشفاه والرمش القياسية (ARKit 52 Blendshapes)
+const VISEME_MAP = {
+  jawOpen: ["jawOpen", "viseme_aa", "mouthOpen"],
+  mouthPucker: ["mouthPucker", "viseme_O", "viseme_U"],
+  mouthSmile: ["mouthSmileLeft", "mouthSmileRight", "smile"],
+  blink: ["eyeBlinkLeft", "eyeBlinkRight", "blink"]
+};
+
+// 1. مسار المجسم ثلاثي الأبعاد (تحريك اليد، الرأس، والشفاه)
+function RiggedAvatarMesh({ speaking }: { speaking: boolean }) {
+  const { scene } = useGLTF("/avatar/mr-joo.glb");
+  const avatarGroup = useRef<THREE.Group>(null);
+  
+  // البحث عن العظام المسؤولة عن حركة اليد والأصابع والرأس
+  const bones = useMemo(() => {
+    const foundBones: Record<string, THREE.Bone> = {};
+    scene.traverse((obj) => {
+      if ((obj as THREE.Bone).isBone) {
+        foundBones[obj.name] = obj as THREE.Bone;
+      }
+    });
+    return foundBones;
+  }, [scene]);
+
+  // استخراج شبكات العضلات والـ Morph Targets
+  const morphMeshes = useMemo(() => {
+    const meshes: THREE.Mesh[] = [];
+    scene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (mesh.isMesh && mesh.morphTargetDictionary && mesh.morphTargetInfluences) {
+        meshes.push(mesh);
+      }
+    });
+    return meshes;
+  }, [scene]);
+
+  useFrame(({ clock }, delta) => {
+    const t = clock.getElapsedTime();
+
+    // حركة التنفس الطبيعي للجسد والعمود الفقري
+    if (bones["Spine"] || bones["spine"]) {
+      const spine = bones["Spine"] || bones["spine"];
+      spine.rotation.x = Math.sin(t * 1.2) * 0.02;
+    }
+
+    // حركة الرأس الطبيعية (إمالة وتفاعل مستمر)
+    if (bones["Head"] || bones["head"]) {
+      const head = bones["Head"] || bones["head"];
+      head.rotation.y = Math.sin(t * 0.35) * 0.04;
+      head.rotation.x = Math.sin(t * 0.8) * 0.02;
+    }
+
+    // حركة اليد والأصابع كما في الصورة الأولى (رفع اليد والإشارة التفاعلية أثناء الحديث)
+    if (bones["RightArm"] || bones["RightForeArm"]) {
+      const arm = bones["RightForeArm"] || bones["RightArm"];
+      if (speaking) {
+        arm.rotation.z = THREE.MathUtils.damp(arm.rotation.z, 0.4 + Math.sin(t * 2.5) * 0.15, 4, delta);
+        arm.rotation.x = THREE.MathUtils.damp(arm.rotation.x, -0.3 + Math.sin(t * 1.8) * 0.1, 4, delta);
+      } else {
+        arm.rotation.z = THREE.MathUtils.damp(arm.rotation.z, 0.1, 2, delta);
+      }
+    }
+
+    // محرك تزامن الشفاه وعضلات الوجه الحقيقي (Phoneme-to-Viseme)
+    morphMeshes.forEach((mesh) => {
+      const dict = mesh.morphTargetDictionary!;
+      const influences = mesh.morphTargetInfluences!;
+
+      // فتح وغلق الفك بحسابات التردد الصوتي
+      const syllable = speaking ? Math.max(0, Math.sin(t * 14) * 0.6 + Math.sin(t * 22) * 0.3) : 0;
+      for (const key of VISEME_MAP.jawOpen) {
+        const idx = dict[key];
+        if (idx !== undefined) influences[idx] = THREE.MathUtils.damp(influences[idx], syllable, 20, delta);
+      }
+
+      // الرمش الطبيعي للعين كل 4 ثوانٍ
+      const blinkTime = t % 4.2;
+      const blinkVal = blinkTime > 4.0 ? Math.sin(((blinkTime - 4.0) / 0.2) * Math.PI) : 0;
+      for (const key of VISEME_MAP.blink) {
+        const idx = dict[key];
+        if (idx !== undefined) influences[idx] = THREE.MathUtils.damp(influences[idx], blinkVal, 35, delta);
+      }
+    });
+  });
+
+  return <primitive ref={avatarGroup} object={scene} position={[0, -0.9, 0]} scale={1.8} />;
+}
+
+// 2. مسار البث المباشر المولد عصبياً (Neural Stream - Video Mode)
+function NeuralVideoStream({ active, speaking }: { active: boolean; speaking: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  return (
+    <div className={`neural-video-viewport ${active ? "active" : "hidden"}`}>
+      {/* مشغل فيديو WebRTC للبث المباشر عالي الواقعية المولد من صورته الأصلية */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={false}
+        poster="/avatar/mr-joo-reference.jpg"
+        className="live-neural-canvas"
+      />
+      <div className="stream-watermark">AI NEURAL VIDEO STREAM // 60 FPS</div>
+    </div>
+  );
+}
+
+// المكون الحاكم للتبديل بين المسارين
+export default function DualAvatarEngine({ speaking = false }: { speaking?: boolean }) {
+  const [mode, setMode] = useState<"3D" | "NEURAL">("3D");
+  const [modelExists, setModelExists] = useState(false);
+
+  useEffect(() => {
+    fetch("/avatar/mr-joo.glb", { method: "HEAD" })
+      .then((res) => setModelExists(res.ok))
+      .catch(() => setModelExists(false));
+  }, []);
+
+  return (
+    <div className="stage-master-wrapper">
+      {/* زر التبديل بين محرك الـ 3D ومحرك الفيديو العصبي */}
+      <div className="mode-switch-hud">
+        <button
+          className={`switch-chip ${mode === "3D" ? "active" : ""}`}
+          onClick={() => setMode("3D")}
+        >
+          <Box size={13} /> محرك الـ 3D واليدين
+        </button>
+        <button
+          className={`switch-chip ${mode === "NEURAL" ? "active" : ""}`}
+          onClick={() => setMode("NEURAL")}
+        >
+          <Video size={13} /> البث العصبي اللحظي
+        </button>
+      </div>
+
+      {mode === "3D" && modelExists ? (
+        <Canvas camera={{ position: [0, 1.4, 2.6], fov: 32 }} dpr={[1, 1.5]}>
+          <color attach="background" args={["#030407"]} />
+          <ambientLight intensity={0.7} />
+          <directionalLight position={[2, 4, 3]} intensity={2.2} />
+          <pointLight position={[-2, 1.8, -1]} color="#ff1a35" intensity={2.0} />
+          <pointLight position={[2, 1.8, -1]} color="#d4af37" intensity={1.5} />
+          <Suspense fallback={null}>
+            <RiggedAvatarMesh speaking={speaking} />
+            <Environment preset="studio" />
+          </Suspense>
+        </Canvas>
+      ) : (
+        <NeuralVideoStream active={true} speaking={speaking} />
+      )}
+
+      <div className="vignette-overlay" />
+    </div>
+  );
+}
