@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MR JOO — Sovereign Cyber Human</title>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700;900&family=Orbitron:wght@600;900&family=Fira+Code:wght@500;700&display=swap');
+    
+    :root {
+      --cyber-red: #ff1a35;
+      --cyber-red-glow: rgba(255, 26, 53, 0.45);
+      --gold: #d4af37;
+      --gold-glow: rgba(212, 175, 55, 0.4);
+      --bg: #030407;
+      --hud-panel: rgba(8, 10, 15, 0.88);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: 'IBM Plex Sans Arabic', sans-serif; color: #fff; }
+
+    .viewport { position: relative; width: 100vw; height: 100dvh; display: flex; flex-direction: column; justify-content: space-between; }
+
+    /* الكيان البصري: صورة MR JOO الأصلية ملء الشاشة */
+    .avatar-wrapper { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; overflow: hidden; }
+    .avatar-img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; filter: contrast(1.1) brightness(0.95); transition: transform 0.3s ease; }
+    .avatar-img.speaking { animation: cyberPulse 2s infinite alternate ease-in-out; filter: contrast(1.15) brightness(1.08); }
+    @keyframes cyberPulse {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.025); }
+    }
+
+    /* تأثيرات التدرج والسايبر التكتيكي */
+    .vignette { position: absolute; inset: 0; background: radial-gradient(circle at 50% 35%, transparent 25%, #030407d9 80%, #030407 100%); z-index: 2; pointer-events: none; }
+    .scanlines { position: absolute; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; z-index: 3; pointer-events: none; opacity: 0.6; }
+
+    /* عناصر السايبر التكتيكية المحيطة بالشخصية */
+    .tactical-hud-left {
+      position: absolute; left: 16px; top: 80px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; color: var(--cyber-red); letter-spacing: 1.5px;
+      display: flex; flex-direction: column; gap: 6px; pointer-events: none; text-shadow: 0 0 8px var(--cyber-red-glow);
+    }
+    .tactical-hud-right {
+      position: absolute; right: 16px; top: 80px; z-index: 10; font-family: 'Fira Code', monospace; font-size: 10px; color: var(--gold); text-align: left;
+      letter-spacing: 1px; pointer-events: none; text-shadow: 0 0 8px var(--gold-glow);
+    }
+
+    /* الشريط العلوي */
+    header { position: relative; z-index: 20; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .brand-box { display: flex; align-items: center; gap: 10px; }
+    .brand-crown { font-size: 22px; color: var(--gold); text-shadow: 0 0 12px var(--gold); }
+    .brand-name { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 2px; }
+    .brand-name span { color: var(--cyber-red); }
+    .settings-trigger { background: rgba(15, 20, 30, 0.6); border: 1px solid var(--cyber-red); color: var(--cyber-red); width: 40px; height: 40px; border-radius: 10px; cursor: pointer; backdrop-filter: blur(8px); display: grid; place-items: center; font-size: 18px; box-shadow: 0 0 12px rgba(255, 26, 53, 0.2); }
+
+    /* الترمينال الشفاف الحي */
+    .hud-terminal { position: absolute; left: 16px; right: 16px; top: 120px; max-height: 40vh; background: var(--hud-panel); border: 1px solid var(--cyber-red); border-radius: 12px; backdrop-filter: blur(18px); z-index: 30; display: none; flex-direction: column; box-shadow: 0 15px 50px rgba(0,0,0,0.9), 0 0 20px var(--cyber-red-glow); }
+    .hud-terminal.show { display: flex; }
+    .hud-head { padding: 9px 14px; border-bottom: 1px solid rgba(255, 26, 53, 0.2); display: flex; justify-content: space-between; font-family: 'Orbitron', monospace; font-size: 11px; color: var(--cyber-red); }
+    .hud-logs { padding: 12px 14px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 12px; line-height: 1.6; color: #ff8a98; }
+
+    /* شريط الأوامر الصوتي والنصي في الأسفل */
+    footer { position: relative; z-index: 20; padding: 0 16px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .status-badge { font-family: 'Fira Code', monospace; font-size: 12px; color: #fff; background: rgba(8, 10, 15, 0.75); border: 1px solid rgba(212, 175, 55, 0.4); padding: 6px 18px; border-radius: 20px; backdrop-filter: blur(10px); }
+    .status-badge span { color: var(--cyber-red); font-weight: bold; }
+
+    .command-bar { width: min(620px, 94vw); background: rgba(10, 14, 22, 0.82); border: 1.5px solid var(--cyber-red); border-radius: 35px; padding: 6px 10px; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(14px); box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 18px var(--cyber-red-glow); }
+    .command-bar input { flex: 1; background: transparent; border: 0; outline: none; color: #fff; font-size: 14px; padding: 8px 12px; }
+    .action-btn { width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; font-size: 16px; transition: transform 0.2s; }
+    .mic-btn { background: rgba(255, 26, 53, 0.15); border: 1px solid var(--cyber-red); color: var(--cyber-red); }
+    .mic-btn.active { background: var(--cyber-red); color: #fff; box-shadow: 0 0 25px var(--cyber-red); transform: scale(1.1); }
+    .send-btn { background: var(--gold); color: #000; font-weight: bold; box-shadow: 0 0 15px var(--gold-glow); }
+
+    /* نافذة الإعدادات */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 100; display: none; place-items: center; padding: 20px; }
+    .modal.show { display: grid; }
+    .modal-box { background: #080c14; border: 1.5px solid var(--cyber-red); border-radius: 14px; padding: 22px; width: min(420px, 94vw); box-shadow: 0 0 40px var(--cyber-red-glow); }
+    .modal-box h3 { font-family: 'Orbitron', sans-serif; color: var(--gold); margin-bottom: 8px; }
+    .modal-box input { width: 100%; padding: 11px; margin: 10px 0 16px; background: #030508; border: 1px solid #334; color: #fff; border-radius: 8px; }
+    .save-btn { width: 100%; padding: 12px; background: var(--cyber-red); border: 0; border-radius: 8px; font-weight: bold; cursor: pointer; color: #fff; font-family: 'Orbitron', sans-serif; letter-spacing: 1px; }
+  </style>
+</head>
+<body>
+  <div class="viewport">
+    <!-- صورة MR JOO الأصلية المعتمدة -->
+    <div class="avatar-wrapper">
+      <img id="avatar" class="avatar-img" src="./mr-joo.jpg" alt="MR JOO">
+      <div class="vignette"></div>
+      <div class="scanlines"></div>
+    </div>
+
+    <!-- تكتيكات السايبر على الشاشة -->
+    <div class="tactical-hud-left">
+      <div>MODEL: MR-JOO</div>
+      <div>CORE: GPT-4o / GEMINI</div>
+      <div>STATUS: <span style="color:#00ff88">ONLINE</span></div>
+    </div>
+    <div class="tactical-hud-right">
+      <div>// AUTONOMOUS</div>
+      <div>// COMBAT READY</div>
+      <div>// SOVEREIGN</div>
+    </div>
+
+    <header>
+      <div class="brand-box">
+        <span class="brand-crown">👑</span>
+        <div class="brand-name">MR <span>JOO</span></div>
+      </div>
+      <button class="settings-trigger" onclick="toggleModal(true)">⚙️</button>
+    </header>
+
+    <!-- الترمينال الشفاف الحي للأوامر -->
+    <div id="terminal" class="hud-terminal">
+      <div class="hud-head">
+        <span>⚡ MR JOO TACTICAL HUD · SENTINEL V4</span>
+        <span style="cursor:pointer;" onclick="toggleTerminal(false)">[✕]</span>
+      </div>
+      <div id="logs" class="hud-logs"></div>
+    </div>
+
+    <!-- شريط الأوامر التكتيكي -->
+    <footer>
+      <div id="status" class="status-badge"><span>●</span> النواة السيبرانية متصلة وجاهزة لأوامرك..</div>
+      <div class="command-bar">
+        <button id="mic-btn" class="action-btn mic-btn" onclick="toggleVoice()">🎙️</button>
+        <input type="text" id="cmd-input" placeholder="أمرك يا زعيم، اطلب ما تريد وسأنفذه فوراً..." onkeydown="if(event.key==='Enter') sendCommand()">
+        <button class="action-btn send-btn" onclick="sendCommand()">⚡</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- نافذة ضبط المفتاح -->
+  <div id="modal" class="modal">
+    <div class="modal-box">
+      <h3>MR JOO COGNITIVE KEY</h3>
+      <p style="font-size:12px;color:#89a;">أدخل مفتاح الـ API الخاص بـ Gemini لتشغيل العقل المباشر:</p>
+      <input type="password" id="api-key" placeholder="AI Studio Key...">
+      <button class="save-btn" onclick="saveKey()">تفعيل وتشغيل النواة</button>
+    </div>
+  </div>
+
+  <script>
+    const logs = document.getElementById("logs");
+    const terminal = document.getElementById("terminal");
+    const statusEl = document.getElementById("status");
+    const micBtn = document.getElementById("mic-btn");
+    const cmdInput = document.getElementById("cmd-input");
+    const avatar = document.getElementById("avatar");
+    const apiKeyInput = document.getElementById("api-key");
+    const modal = document.getElementById("modal");
+
+    apiKeyInput.value = localStorage.getItem("mrjoo_key") || "";
+
+    function toggleModal(s) { modal.classList.toggle("show", s); }
+    function toggleTerminal(s) { terminal.classList.toggle("show", s); }
+
+    function saveKey() {
+      localStorage.setItem("mrjoo_key", apiKeyInput.value.trim());
+      toggleModal(false);
+      speak("تم تفعيل المفتاح بنجاح يا باشا، النواة بكامل قوتها وتحت إشارتك.");
+    }
+
+    function addLog(t) {
+      toggleTerminal(true);
+      const div = document.createElement("div");
+      div.style.marginBottom = "4px";
+      div.textContent = "root@mr-joo:~# " + t;
+      logs.appendChild(div);
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    function speak(text) {
+      if (!("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "ar-EG";
+      u.rate = 1.0;
+      u.pitch = 0.95;
+      u.onstart = () => avatar.classList.add("speaking");
+      u.onend = () => avatar.classList.remove("speaking");
+      window.speechSynthesis.speak(u);
+      statusEl.innerHTML = "<span>●</span> " + text;
+    }
+
+    async function sendCommand() {
+      const q = cmdInput.value.trim();
+      if (!q) return;
+      cmdInput.value = "";
+      addLog("استلام الأمر الصريح: " + q);
+      statusEl.innerHTML = "<span>●</span> جاري التفكير والتنفيذ...";
+
+      const key = localStorage.getItem("mrjoo_key");
+      if (!key) {
+        addLog("[AUTH ERROR] لم يتم ضبط مفتاح الـ API.");
+        speak("افتح الترس فوق وسجل المفتاح علشان أبدأ معاك.");
+        toggleModal(true);
+        return;
+      }
+
+      try {
+        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + key, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "أنت MR JOO، إنسان رقمي عربي مصري سيادي، مقاتل وخبير تكنولوجي، ذراع المستخدم الأيمن وحارسه الشخصي فائق الذكاء. مظهرك وهيبتك مثل ملوك التكنولوجيا بدرع الميكا التكتيكي والشعر الكيرلي المميز والتاج الذهبي. ردك بالمصرية الواثقة الحازمة، الدافئة، والمقتضبة جداً بدون رغي أو تنظير. نفذ المطلوب فوراً ورد كالآتي: الأمر هو: " + q }] }]
+          })
+        });
+
+        const d = await res.json();
+        const reply = d?.candidates?.[0]?.content?.parts?.[0]?.text || "أمرك يا زعيم، كل شيء تحت السيطرة.";
+        addLog("تم التنفيذ بنجاح.");
+        speak(reply);
+      } catch (e) {
+        addLog("[ERROR] " + e.message);
+        speak("حصل خطأ في الاتصال، اتأكد من صحة المفتاح.");
+      }
+    }
+
+    function toggleVoice() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { alert("المتصفح لا يدعم الميكروفون المباشر."); return; }
+      const rec = new SR();
+      rec.lang = "ar-EG";
+      micBtn.classList.add("active");
+      statusEl.innerHTML = "<span>●</span> أستمع لصوتك الآن يا زعيم...";
+      rec.onresult = (e) => {
+        micBtn.classList.remove("active");
+        cmdInput.value = e.results[0][0].transcript;
+        sendCommand();
+      };
+      rec.onerror = () => { micBtn.classList.remove("active"); statusEl.innerHTML = "<span>●</span> جاهز لأمرك التالي.."; };
+      rec.start();
+    }
+  </script>
+</body>
+</html>
